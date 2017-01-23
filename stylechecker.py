@@ -32,12 +32,12 @@ def checkAgainstRules(line, number):
     for rule, (regex, description) in rules.items():
         if re.search(regex, line):
             violations.append((rule, number + 1))
-    
+
     return violations
 
 
 # Arg: a string to specify the filename
-# Return an array to be added to the list of the 
+# Return an array to be added to the list of the
 def checkHeaderComments(filename):
     authorFound = False
     filenameFound = False
@@ -46,7 +46,7 @@ def checkHeaderComments(filename):
         # We assume the header to be in the top 10 lines of the file
         for line in list(islice(fh, 6)):
             # The regex basically looks for something beginning with //,*, or a spaces
-            
+
             if re.search("(\/\/|\*|\s)+.*(File|file|.hpp|.cpp|.h)", line):
                 filenameFound = True
             if re.search("(Author|author)", line):
@@ -63,38 +63,33 @@ def checkHeaderComments(filename):
 # Uses heuristic to see if there are roughly enough comments to satisfy
 # a decent description of the files
 def checkForDocumentation(filename):
-    if re.search(".*.cpp", filename):
-        readingMultilineComment = False
-        totalLinesOfComments = 0
-        
-        fh = open(filename)
+    totalLinesOfComments = 0
 
-        for line in fh:
-            if readingMultilineComment:
-                if re.search("\*/", line):
-                    readingMultilineComment = False
-                else:
-                    totalLinesOfComments += 1
-            
+    entireFile = getEntireFile(filename)
+    # This covers the /* ... */ comments
+    comments = re.findall('\/\*[\S\s]*\*\/', entireFile)
+    if comments != []:
+        for comment in comments:
+            if comment.count('\n') == 0:
+                totalLinesOfComments += 1
             else:
-                # This covers the /* ... */ comments
-                if re.search("/\*.*\*/", line):
+                # Just a simple check to see if there's comments preceding */ or after /*
+                if re.search("\/\*\S+", comment):
                     totalLinesOfComments += 1
-                # This covers /* \n .. \n */ comments
-                elif re.search("/\*", line):
-                    readingMultilineComment = True
-                # This covers // comments
-                elif re.search("\/\/", line):
+                if re.search("\S+\*\/", comment):
                     totalLinesOfComments += 1
-                       
-        # A good hueristic for documentation is 3 lines of code for every function
-        if 3*numberOfFunctions(filename) > totalLinesOfComments:
-            newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename), commentCount=totalLinesOfComments)
-            rules[RuleTypes.DOCUMENTATION] = ("$a", newRule)
-            return [(RuleTypes.DOCUMENTATION, 0)]
-        else:
-            return []
+                
+                # We subtract one empty lines after * (this also matches the /* \n) 
+                totalLinesOfComments += comment.count('\n') - len(re.findall('\*\s*\n', comment))
 
+    # This covers // comments
+    totalLinesOfComments += len(re.findall('\/\/.+', entireFile))
+    
+    # A good hueristic for documentation is 3 lines of code for every function
+    if 3*numberOfFunctions(filename) > totalLinesOfComments:
+        newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename), commentCount=totalLinesOfComments)
+        rules[RuleTypes.DOCUMENTATION] = ("$a", newRule)
+        return [(RuleTypes.DOCUMENTATION, 0)]
     else:
         return []
 
@@ -110,8 +105,8 @@ def verifyReturnStatements(filename):
                 totalNumberOfReturnStatements += 1
 
         if totalNumberOfReturnStatements < numberOfFunctions(filename):
-            return [(RuleTypes.FUNCTIONS, 0)] 
-    
+            return [(RuleTypes.FUNCTIONS, 0)]
+
     return []
 
 
@@ -119,14 +114,14 @@ def verifyReturnStatements(filename):
 # Counts and returns an integer for every function
 def numberOfFunctions(filename):
     if re.search(".*.cpp", filename):
-        
+
         totalNumberOfFunctions = 0
         fh = open(filename)
 
         for line in fh:
             if re.search("[a-zA-Z]([a-zA-Z]|[0-9]|_)*\s+([a-zA-Z]([a-zA-Z]|[0-9]|_)*\s*::\s*)*[a-zA-Z]([a-zA-Z]|[0-9]|_)*\(", line):
                 totalNumberOfFunctions += 1
-        
+
         return totalNumberOfFunctions
     else:
         return 0
@@ -136,7 +131,7 @@ def numberOfFunctions(filename):
 # Navigates to the line, and returns the string up to and including \n
 def getLine(filename, lineNumber):
     fh = open(filename)
-    
+
     for index, line in enumerate(fh):
         if index + 1 == lineNumber:
             return line
@@ -156,7 +151,7 @@ def stripExcessSpace(string):
 # Prints all violations in markdown form
 def printOutViolations(filename, violations):
     violations.sort()
-    
+
     keys = [i[0] for i in violations]
     violationsPrinted = {x: (0, False) for x in list(rules.keys())}
 
@@ -165,18 +160,27 @@ def printOutViolations(filename, violations):
             print("\n**{violation}** *({count} Violations, Omitting After Five)*\n".format(count=keys.count(rule), violation=rules[rule][1]))
         elif not violationsPrinted[rule][1]:
             print("\n**{violation}**\n".format(violation=rules[rule][1]))
-            
+
         if violationsPrinted[rule][0] < 5:
             print('- Line {line}: `{violatingLine}`\n'.format(line=line, violatingLine=stripExcessSpace(getLine(filename, line))))
-        
+
         violationsPrinted[rule] = (violationsPrinted[rule][0] + 1, True)
 
+
+def getEntireFile(filename):
+    fh = open(sys.argv[1])
+    fileAsString = ""
+
+    for line in fh:
+        fileAsString += line
+
+    return fileAsString
 
 def main():
     fh = open(sys.argv[1])
     nonLineByLineRules = [checkHeaderComments, checkForDocumentation]
-    
-    violations = [] 
+
+    violations = []
 
     for function in nonLineByLineRules:
         additionalViolations = function(sys.argv[1])
@@ -186,11 +190,11 @@ def main():
 
     for index, line in enumerate(fh):
         additionalViolations = checkAgainstRules(line, index)
-        
+
         if additionalViolations != []:
             violations += additionalViolations
-    
-    
+
+
     printOutViolations(sys.argv[1], violations)
     fh.close()
 
