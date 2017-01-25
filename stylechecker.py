@@ -3,6 +3,7 @@ import sys
 
 from itertools import islice
 
+import cProfile
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
@@ -86,8 +87,8 @@ def checkForDocumentation(filename):
     totalLinesOfComments += len(re.findall('\/\/.+', entireFile))
     
     # A good hueristic for documentation is 3 lines of code for every function
-    if 3*numberOfFunctions(filename) > totalLinesOfComments:
-        newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename), commentCount=totalLinesOfComments)
+    if 3*(numberOfFunctions(filename))[1] > totalLinesOfComments:
+        newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename)[1], commentCount=totalLinesOfComments)
         rules[RuleTypes.DOCUMENTATION] = ("$a", newRule)
         return [(RuleTypes.DOCUMENTATION, 0)]
     else:
@@ -109,22 +110,22 @@ def verifyReturnStatements(filename):
 
     return []
 
+def lastElement(someTuple):
+    return someTuple[len(someTuple) - 1]
 
 # Arg: a string to specify the filename
 # Counts and returns an integer for every function
 def numberOfFunctions(filename):
-    if re.search(".*.cpp", filename):
+    entireFile = getEntireFile(filename)
+    pattern = re.compile(
+    '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]([a-zA-Z]|[0-9]|_|\[\]|\&|\s)*|\s|,)*\)\s*(.)'
+    )
+    allFunctions = pattern.findall(entireFile)
+        
+    definitions = list(filter(lambda x: lastElement(x) == '{', allFunctions))
+    prototypes = list(filter(lambda x: lastElement(x) == ';', allFunctions))
 
-        totalNumberOfFunctions = 0
-        fh = open(filename)
-
-        for line in fh:
-            if re.search("[a-zA-Z]([a-zA-Z]|[0-9]|_)*\s+([a-zA-Z]([a-zA-Z]|[0-9]|_)*\s*::\s*)*[a-zA-Z]([a-zA-Z]|[0-9]|_)*\(", line):
-                totalNumberOfFunctions += 1
-
-        return totalNumberOfFunctions
-    else:
-        return 0
+    return (len(definitions), len(prototypes))
 
 
 # Args: a string filename and the line for which you want returned
@@ -180,7 +181,7 @@ def main():
     fh = open(sys.argv[1])
     nonLineByLineRules = [checkHeaderComments, checkForDocumentation]
 
-    violations = []
+    violations = [] 
 
     for function in nonLineByLineRules:
         additionalViolations = function(sys.argv[1])
