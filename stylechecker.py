@@ -3,20 +3,20 @@ import sys
 
 from itertools import islice
 
-import cProfile
-
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
 
 
 # If a new rule appears, simply add to the enum and the regex to the rules section
-RuleTypes = enum('HEADER', 'DOCUMENTATION', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
+RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
 
 rules = {
         RuleTypes.HEADER: ("$a", "Missing Header"),
         RuleTypes.DOCUMENTATION: ("$a", "Missing Documentation"),
         RuleTypes.FUNCTIONS: ("$a", "Return Statements < Functions"),
+        RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
+        RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
         RuleTypes.COLUMN: (".{80}", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
 	RuleTypes.TABS: ("\t", "Tabs")
@@ -110,8 +110,41 @@ def verifyReturnStatements(filename):
 
     return []
 
+
+def checkHeaderGaurds(filename):
+    entireFile = getEntireFile(filename)
+    violations = []
+
+    if re.search(".*.(h|hpp)", filename):
+        pattern = re.compile('#ifndef\s*(.*)\n#define\s*(.*)')
+        headerGaurds = pattern.search(entireFile)
+            
+        ifNotDefine = headerGaurds.group(1)
+        define = headerGaurds.group(2)
+
+        if ifNotDefine != define:
+            violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findInFile(filename, ifNotDefine)))
+        if define != filename.replace(".", "_").upper():
+            violations.append((RuleTypes.HEADER_GAURDS_NAMING, findInFile(filename, define)))
+
+    return violations
+
+
+# Args: someTuple is, well, a tuple
+# Returns te last element in the said tuple
 def lastElement(someTuple):
     return someTuple[len(someTuple) - 1]
+
+
+def findInFile(filename, token):
+    fh = open(filename)
+
+    for index, line in enumerate(fh):
+        if token in line:
+            return index + 1
+
+    return None
+
 
 # Arg: a string to specify the filename
 # Counts and returns an integer for every function
@@ -179,7 +212,7 @@ def getEntireFile(filename):
 
 def main():
     fh = open(sys.argv[1])
-    nonLineByLineRules = [checkHeaderComments, checkForDocumentation]
+    nonLineByLineRules = [checkHeaderComments, checkForDocumentation, checkHeaderGaurds]
 
     violations = [] 
 
