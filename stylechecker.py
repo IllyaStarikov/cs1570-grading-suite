@@ -3,10 +3,21 @@ import sys
 
 from itertools import islice
 
+
+# These sections specify what the rules are and how the work
+# Every rule is specified as an enum, then stored in a dictionary
+# The enum is the key, and a (regular expression, description) is the value
+# A regular expression is used to specify how to match against the enum,
+# a description is used to print out what the violation is
+
+# Note if the regex is $a, this is a character after the end of the line
+# If you think that's impossible, you're correct. This is used to specify
+# a rule that's too complicated to be checked line by line (further in the script)
+# and has it's own dedicated function.
+
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
-
 
 # If a new rule appears, simply add to the enum and the regex to the rules section
 RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'SWITCH_DEFAULT', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
@@ -20,8 +31,29 @@ rules = {
         RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
         RuleTypes.COLUMN: (".{80}", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
-	RuleTypes.TABS: ("\t", "Tabs"),
+	    RuleTypes.TABS: ("\t", "Tabs"),
         }
+
+
+# Args: a list of the form (rule enum, line number)
+# Prints all violations in markdown form. Why markdown?
+# Easily exportable to other formats.
+def printOutViolations(filename, violations):
+    violations.sort()
+
+    keys = [i[0] for i in violations]
+    violationsPrinted = {x: (0, False) for x in list(rules.keys())}
+
+    for rule, line in violations:
+        if keys.count(rule) > 10 and not violationsPrinted[rule][1]:
+            print("\n**{violation}** *({count} Violations, Omitting After Five)*\n".format(count=keys.count(rule), violation=rules[rule][1]))
+        elif not violationsPrinted[rule][1]:
+            print("\n**{violation}**\n".format(violation=rules[rule][1]))
+
+        if violationsPrinted[rule][0] < 5:
+            print('- Line {line}: `{violatingLine}`\n'.format(line=line, violatingLine=stripExcessSpace(getLine(filename, line))))
+
+        violationsPrinted[rule] = (violationsPrinted[rule][0] + 1, True)
 
 
 # Checks against all the regexes in the regex rules
@@ -54,6 +86,7 @@ def checkHeaderComments(filename):
             if re.search("(Author|author)", line):
                 authorFound = True
 
+    fh.close()
     if authorFound or filenameFound:
         return []
     else:
@@ -80,13 +113,13 @@ def checkForDocumentation(filename):
                     totalLinesOfComments += 1
                 if re.search("\S+\*\/", comment):
                     totalLinesOfComments += 1
-                
-                # We subtract one empty lines after * (this also matches the /* \n) 
+
+                # We subtract one empty lines after * (this also matches the /* \n)
                 totalLinesOfComments += comment.count('\n') - len(re.findall('\*\s*\n', comment))
 
     # This covers // comments
     totalLinesOfComments += len(re.findall('\/\/.+', entireFile))
-    
+
     # A good hueristic for documentation is 3 lines of code for every function
     if 3*(numberOfFunctions(filename))[1] > totalLinesOfComments:
         newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename)[1], commentCount=totalLinesOfComments)
@@ -100,11 +133,14 @@ def checkForDocumentation(filename):
 # Verifies every function has a return statement
 def verifyReturnStatements(filename):
     if re.search(".*.cpp", filname):
+        fh = open(filename)
         totalNumberOfReturnStatements = 0
 
         for line in fh:
             if re.search("\s*return\s*;\s*", line):
                 totalNumberOfReturnStatements += 1
+
+        fh.close()
 
         if totalNumberOfReturnStatements < numberOfFunctions(filename):
             return [(RuleTypes.FUNCTIONS, 0)]
@@ -112,34 +148,48 @@ def verifyReturnStatements(filename):
     return []
 
 
+# Args: a string to specify the filename
+# Verifies that every switch has a default case
+# as specified in the styleguide
 def checkForDefaultInSwitch(filename):
     entireFile = getEntireFile(filename)
     violations = []
 
-    pattern = re.compile('switch\s*\(.*\)\s*\{[^\{;]+\}') 
+    pattern = re.compile('switch\s*\(.*\)\s*\{[^\{;]+\}')
     switchCases = pattern.findall(entireFile)
     lineNumbers = [m.start(0) for m in pattern.finditer(entireFile)]
 
     for switch, line in zip(switchCases, lineNumbers):
         if not re.search('\s*default:\s+', switch):
+            # the line of Nth character is used because the iterator returns what character
+            # number is in the file. There should be a more effecient way, but Meh
             violations.append((RuleTypes.SWITCH_DEFAULT, lineOfNthCharacter(filename, line)))
 
     return violations
 
 
+# Args: a string to specify the filename
+# Verifies that header gaurds both:
+# 1) are named the same
+# 2) have the format of FILENAME_EXTENSION
 def checkHeaderGaurds(filename):
     entireFile = getEntireFile(filename)
     violations = []
 
+    # If not a header, disregard
     if re.search(".*.(h|hpp)", filename):
+        # Match against the header gaurds, assuming there are only one
         pattern = re.compile('#ifndef\s*(.*)\n#define\s*(.*)')
         headerGaurds = pattern.search(entireFile)
-            
+
         ifNotDefine = headerGaurds.group(1)
         define = headerGaurds.group(2)
 
+        # If not defined the same
         if ifNotDefine != define:
             violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findFirstOccurenceInFile(filename, ifNotDefine)))
+
+        # If not in the format FILENAME_EXTENSION
         if define != filename.replace(".", "_").upper():
             violations.append((RuleTypes.HEADER_GAURDS_NAMING, findFirstOccurenceInFile(filename, define)))
 
@@ -152,9 +202,13 @@ def lastElement(someTuple):
     return someTuple[len(someTuple) - 1]
 
 
+# Args: a string to specify the filename
+# Returns what line the Nth character in the string is
+# This is literally going to hurt python coders
+# but I have no idea of a better way to do it
 def lineOfNthCharacter(filename, characterCount):
     entireFile = getEntireFile(filename)
-    
+
     if len(entireFile) < characterCount:
         return None
 
@@ -166,25 +220,31 @@ def lineOfNthCharacter(filename, characterCount):
         if index + 1 >= characterCount:
             return count
 
+
+# Args: string for filename, string token
+# Searches in the file line by line and returns
+# The first occurence of said token is returned
 def findFirstOccurenceInFile(filename, token):
     fh = open(filename)
 
     for index, line in enumerate(fh):
         if token in line:
+            fh.close()
             return index + 1
 
+    fh.close()
     return None
 
 
 # Arg: a string to specify the filename
-# Counts and returns an integer for every function
+# Counts and returns an integer specifying how many function there are in said file
 def numberOfFunctions(filename):
-    entireFile = getEntireFile(filename) 
+    entireFile = getEntireFile(filename)
     pattern = re.compile(
     '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]([a-zA-Z]|[0-9]|_|\[\]|\&|\s)*|\s|,)*\)\s*(.)'
     )
     allFunctions = pattern.findall(entireFile)
-        
+
     definitions = list(filter(lambda x: lastElement(x) == '{', allFunctions))
     prototypes = list(filter(lambda x: lastElement(x) == ';', allFunctions))
 
@@ -198,8 +258,10 @@ def getLine(filename, lineNumber):
 
     for index, line in enumerate(fh):
         if index + 1 == lineNumber:
+            fh.close()
             return line
 
+    fh.close()
     return ""
 
 
@@ -211,26 +273,8 @@ def stripExcessSpace(string):
     return removedBeginningAndEndingSpace
 
 
-# Args: a list of the form (rule enum, line number)
-# Prints all violations in markdown form
-def printOutViolations(filename, violations):
-    violations.sort()
-
-    keys = [i[0] for i in violations]
-    violationsPrinted = {x: (0, False) for x in list(rules.keys())}
-
-    for rule, line in violations:
-        if keys.count(rule) > 10 and not violationsPrinted[rule][1]:
-            print("\n**{violation}** *({count} Violations, Omitting After Five)*\n".format(count=keys.count(rule), violation=rules[rule][1]))
-        elif not violationsPrinted[rule][1]:
-            print("\n**{violation}**\n".format(violation=rules[rule][1]))
-
-        if violationsPrinted[rule][0] < 5:
-            print('- Line {line}: `{violatingLine}`\n'.format(line=line, violatingLine=stripExcessSpace(getLine(filename, line))))
-
-        violationsPrinted[rule] = (violationsPrinted[rule][0] + 1, True)
-
-
+# Args: a string to specify the filename
+# gets the entirety of a the file, and returns said file as a string
 def getEntireFile(filename):
     fh = open(sys.argv[1])
     fileAsString = ""
@@ -238,6 +282,7 @@ def getEntireFile(filename):
     for line in fh:
         fileAsString += line
 
+    fh.close()
     return fileAsString
 
 
@@ -245,7 +290,7 @@ def main():
     fh = open(sys.argv[1])
     nonLineByLineRules = [checkHeaderComments, checkForDocumentation, checkHeaderGaurds, checkForDefaultInSwitch]
 
-    violations = [] 
+    violations = []
 
     for function in nonLineByLineRules:
         additionalViolations = function(sys.argv[1])
