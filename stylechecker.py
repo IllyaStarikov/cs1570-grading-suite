@@ -9,7 +9,7 @@ def enum(*sequential, **named):
 
 
 # If a new rule appears, simply add to the enum and the regex to the rules section
-RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
+RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'SWITCH_DEFAULT', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
 
 rules = {
         RuleTypes.HEADER: ("$a", "Missing Header"),
@@ -17,9 +17,10 @@ rules = {
         RuleTypes.FUNCTIONS: ("$a", "Return Statements < Functions"),
         RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
         RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
+        RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
         RuleTypes.COLUMN: (".{80}", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
-	RuleTypes.TABS: ("\t", "Tabs")
+	RuleTypes.TABS: ("\t", "Tabs"),
         }
 
 
@@ -111,6 +112,21 @@ def verifyReturnStatements(filename):
     return []
 
 
+def checkForDefaultInSwitch(filename):
+    entireFile = getEntireFile(filename)
+    violations = []
+
+    pattern = re.compile('switch\s*\(.*\)\s*\{[^\{;]+\}') 
+    switchCases = pattern.findall(entireFile)
+    lineNumbers = [m.start(0) for m in pattern.finditer(entireFile)]
+
+    for switch, line in zip(switchCases, lineNumbers):
+        if not re.search('\s*default:\s+', switch):
+            violations.append((RuleTypes.SWITCH_DEFAULT, lineOfNthCharacter(filename, line)))
+
+    return violations
+
+
 def checkHeaderGaurds(filename):
     entireFile = getEntireFile(filename)
     violations = []
@@ -123,9 +139,9 @@ def checkHeaderGaurds(filename):
         define = headerGaurds.group(2)
 
         if ifNotDefine != define:
-            violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findInFile(filename, ifNotDefine)))
+            violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findFirstOccurenceInFile(filename, ifNotDefine)))
         if define != filename.replace(".", "_").upper():
-            violations.append((RuleTypes.HEADER_GAURDS_NAMING, findInFile(filename, define)))
+            violations.append((RuleTypes.HEADER_GAURDS_NAMING, findFirstOccurenceInFile(filename, define)))
 
     return violations
 
@@ -136,7 +152,21 @@ def lastElement(someTuple):
     return someTuple[len(someTuple) - 1]
 
 
-def findInFile(filename, token):
+def lineOfNthCharacter(filename, characterCount):
+    entireFile = getEntireFile(filename)
+    
+    if len(entireFile) < characterCount:
+        return None
+
+    count = 1
+
+    for index, character in enumerate(entireFile):
+        if character == '\n':
+            count += 1
+        if index + 1 >= characterCount:
+            return count
+
+def findFirstOccurenceInFile(filename, token):
     fh = open(filename)
 
     for index, line in enumerate(fh):
@@ -149,7 +179,7 @@ def findInFile(filename, token):
 # Arg: a string to specify the filename
 # Counts and returns an integer for every function
 def numberOfFunctions(filename):
-    entireFile = getEntireFile(filename)
+    entireFile = getEntireFile(filename) 
     pattern = re.compile(
     '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]([a-zA-Z]|[0-9]|_|\[\]|\&|\s)*|\s|,)*\)\s*(.)'
     )
@@ -210,9 +240,10 @@ def getEntireFile(filename):
 
     return fileAsString
 
+
 def main():
     fh = open(sys.argv[1])
-    nonLineByLineRules = [checkHeaderComments, checkForDocumentation, checkHeaderGaurds]
+    nonLineByLineRules = [checkHeaderComments, checkForDocumentation, checkHeaderGaurds, checkForDefaultInSwitch]
 
     violations = [] 
 
