@@ -3,7 +3,6 @@ import sys
 
 from itertools import islice
 
-
 # These sections specify what the rules are and how the work
 # Every rule is specified as an enum, then stored in a dictionary
 # The enum is the key, and a (regular expression, description) is the value
@@ -20,7 +19,7 @@ def enum(*sequential, **named):
     return type('Enum', (), enums)
 
 # If a new rule appears, simply add to the enum and the regex to the rules section
-RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'SWITCH_DEFAULT', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS')
+RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'SWITCH_DEFAULT', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS', "CONSTANTS")
 
 rules = {
         RuleTypes.HEADER: ("$a", "Missing Header"),
@@ -31,7 +30,8 @@ rules = {
         RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
         RuleTypes.COLUMN: (".{80}", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
-	    RuleTypes.TABS: ("\t", "Tabs"),
+	RuleTypes.TABS: ("\t", "Tabs"),
+        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-z]|_)([a-zA-Z]|[0-9]|_)(\s*=\s*.+)*;", "Constant not in uppercase")
         }
 
 
@@ -181,17 +181,18 @@ def checkHeaderGaurds(filename):
         # Match against the header gaurds, assuming there are only one
         pattern = re.compile('#ifndef\s*(.*)\n#define\s*(.*)')
         headerGaurds = pattern.search(entireFile)
+        
+        if headerGaurds:
+            ifNotDefine = headerGaurds.group(1)
+            define = headerGaurds.group(2)
 
-        ifNotDefine = headerGaurds.group(1)
-        define = headerGaurds.group(2)
+            # If not defined the same
+            if ifNotDefine != define:
+                violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findFirstOccurenceInFile(filename, ifNotDefine)))
 
-        # If not defined the same
-        if ifNotDefine != define:
-            violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findFirstOccurenceInFile(filename, ifNotDefine)))
-
-        # If not in the format FILENAME_EXTENSION
-        if define != filename.replace(".", "_").upper():
-            violations.append((RuleTypes.HEADER_GAURDS_NAMING, findFirstOccurenceInFile(filename, define)))
+            # If not in the format FILENAME_EXTENSION
+            if define != filename.replace(".", "_").upper():
+                violations.append((RuleTypes.HEADER_GAURDS_NAMING, findFirstOccurenceInFile(filename, define)))
 
     return violations
 
