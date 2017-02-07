@@ -1,5 +1,6 @@
 import re
 import sys
+import csv
 
 from itertools import islice
 
@@ -28,10 +29,10 @@ rules = {
         RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
         RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
         RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
-        RuleTypes.COLUMN: (".{80}", "80 Column Rule"),
+        RuleTypes.COLUMN: (".{79}\S", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
-	RuleTypes.TABS: ("\t", "Tabs"),
-        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-z]|_)([a-zA-Z]|[0-9]|_)(\s*=\s*.+)*;", "Constant not in uppercase")
+        RuleTypes.TABS: ("\t", "Tabs"),
+        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-z]|_)([a-zA-Z]|[0-9]|_)(\s*=\s*.+)*;", "Non-Uppercase Constants")
         }
 
 
@@ -54,6 +55,19 @@ def printOutViolations(filename, violations):
             print('- Line {line}: `{violatingLine}`\n'.format(line=line, violatingLine=stripExcessSpace(getLine(filename, line))))
 
         violationsPrinted[rule] = (violationsPrinted[rule][0] + 1, True)
+
+def exportToCSV(filename, violations):
+    violations.sort()
+    
+    keys = [i[0] for i in violations]
+    keys = removeDuplicates(keys)
+
+    toExport = [filename] 
+    toExport += [rules[i][1] for i in keys]
+    
+    csvFile = open("violations.csv", 'w')
+    wr = csv.writer(csvFile)
+    wr.writerow(toExport)
 
 
 # Checks against all the regexes in the regex rules
@@ -274,6 +288,13 @@ def stripExcessSpace(string):
     return removedBeginningAndEndingSpace
 
 
+# http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
+def removeDuplicates(seq): 
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
+
 # Args: a string to specify the filename
 # gets the entirety of a the file, and returns said file as a string
 def getEntireFile(filename):
@@ -285,6 +306,7 @@ def getEntireFile(filename):
 
     fh.close()
     return fileAsString
+
 
 
 def main():
@@ -305,6 +327,8 @@ def main():
         if additionalViolations != []:
             violations += additionalViolations
 
+    if "--csv" in sys.argv:
+        exportToCSV(sys.argv[1], violations)
 
     printOutViolations(sys.argv[1], violations)
     fh.close()
