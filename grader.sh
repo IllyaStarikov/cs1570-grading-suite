@@ -1,7 +1,7 @@
 #!/bin/bash
 
 extensions={cpp,h,hpp}
-gradedFile="$1/assessment.md"
+gradedFile="assessment.md"
 
 shopt -s nullglob # disable returning *.cpp when can't find files
 
@@ -32,7 +32,7 @@ for path in "$1"/*; do
 
     # Style guide check every file
     for file in "$path"/*.{cpp,h,hpp}; do
-       if [[ -n "python stylechecker.py "$file"" ]]; then
+        if [[ -n $(python stylechecker.py "$file") ]]; then
             if [[ "$printedUser" == false ]]; then
                 echo "# $(basename "${path}")" >> $gradedFile # insert filename into the file
                 printedUser=true
@@ -43,10 +43,12 @@ for path in "$1"/*; do
             echo "" >> "$gradedFile"
 
             cat violations.csv >> allViolations.csv
+        else
+            echo "$file" >> allViolations.csv 
         fi
     done
 done
 
-rm testing allViolations.csv  
+rm testing violations.csv
 
 shopt -u nullglob # re-enable returning *.cpp

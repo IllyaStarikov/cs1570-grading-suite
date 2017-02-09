@@ -92,7 +92,7 @@ def checkHeaderComments(filename):
 
     with open(filename) as fh:
         # We assume the header to be in the top 10 lines of the file
-        for line in list(islice(fh, 6)):
+        for line in list(islice(fh, 8)):
             # The regex basically looks for something beginning with //,*, or a spaces
 
             if re.search("(\/\/|\*|\s)+.*(File|file|.hpp|.cpp|.h)", line):
