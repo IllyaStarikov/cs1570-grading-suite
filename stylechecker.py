@@ -4,6 +4,8 @@ import csv
 
 from itertools import islice
 
+extensions = ["hpp", "cpp", "h"]
+
 # These sections specify what the rules are and how the work
 # Every rule is specified as an enum, then stored in a dictionary
 # The enum is the key, and a (regular expression, description) is the value
@@ -29,10 +31,10 @@ rules = {
         RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
         RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
         RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
-        RuleTypes.COLUMN: (".{79}\S", "80 Column Rule"),
+        RuleTypes.COLUMN: (".{80}\S", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
         RuleTypes.TABS: ("\t", "Tabs"),
-        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-z]|_)([a-zA-Z]|[0-9]|_)(\s*=\s*.+)*;", "Non-Uppercase Constants")
+        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-zA-Z]|_)([A-Z]|[0-9]|_)*[a-z]+([A-Z]|[0-9]|_)*(\s*=\s*.+)*;", "Non-Uppercase Constants")
         }
 
 
@@ -44,6 +46,8 @@ def printOutViolations(filename, violations):
 
     keys = [i[0] for i in violations]
     violationsPrinted = {x: (0, False) for x in list(rules.keys())}
+
+    print("## {filename}".format(filename=basename(filename)))
 
     for rule, line in violations:
         if keys.count(rule) > 10 and not violationsPrinted[rule][1]:
@@ -58,13 +62,13 @@ def printOutViolations(filename, violations):
 
 def exportToCSV(filename, violations):
     violations.sort()
-    
+
     keys = [i[0] for i in violations]
     keys = removeDuplicates(keys)
 
-    toExport = [filename] 
+    toExport = [filename]
     toExport += [rules[i][1] for i in keys]
-    
+
     csvFile = open("violations.csv", 'w')
     wr = csv.writer(csvFile)
     wr.writerow(toExport)
@@ -195,7 +199,7 @@ def checkHeaderGaurds(filename):
         # Match against the header gaurds, assuming there are only one
         pattern = re.compile('#ifndef\s*(.*)\n#define\s*(.*)')
         headerGaurds = pattern.search(entireFile)
-        
+
         if headerGaurds:
             ifNotDefine = headerGaurds.group(1)
             define = headerGaurds.group(2)
@@ -289,7 +293,7 @@ def stripExcessSpace(string):
 
 
 # http://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-in-whilst-preserving-order
-def removeDuplicates(seq): 
+def removeDuplicates(seq):
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
@@ -298,7 +302,7 @@ def removeDuplicates(seq):
 # Args: a string to specify the filename
 # gets the entirety of a the file, and returns said file as a string
 def getEntireFile(filename):
-    fh = open(sys.argv[1])
+    fh = open(filename)
     fileAsString = ""
 
     for line in fh:
@@ -308,30 +312,53 @@ def getEntireFile(filename):
     return fileAsString
 
 
+def filesToGrade():
+    files = []
+
+    for argument in sys.argv:
+        if re.search(".+\.(.+)", argument):
+            pattern = re.compile(".+\.(.+)")
+            extension = pattern.search(argument).group(1)
+
+            if extension in extensions:
+                files.append(argument)
+
+    return files
+
+
+def basename(filename):
+    pattern = re.compile("(.*\/)*(.+.)")
+    return pattern.search(filename).group(2)
+
 
 def main():
-    fh = open(sys.argv[1])
     nonLineByLineRules = [checkHeaderComments, checkForDocumentation, checkHeaderGaurds, checkForDefaultInSwitch]
+    allViolations = []
 
-    violations = []
+    for fileToGrade in filesToGrade():
+        fh = open(fileToGrade)
 
-    for function in nonLineByLineRules:
-        additionalViolations = function(sys.argv[1])
+        violations = []
 
-        if additionalViolations != []:
-            violations += additionalViolations
+        for function in nonLineByLineRules:
+            additionalViolations = function(fileToGrade)
 
-    for index, line in enumerate(fh):
-        additionalViolations = checkAgainstRules(line, index)
+            if additionalViolations != []:
+                violations += additionalViolations
 
-        if additionalViolations != []:
-            violations += additionalViolations
+        for index, line in enumerate(fh):
+            additionalViolations = checkAgainstRules(line, index)
+
+            if additionalViolations != []:
+                violations += additionalViolations
+
+        allViolations += violations
+
+        if violations != []:
+            printOutViolations(fileToGrade, violations)
 
     if "--csv" in sys.argv:
-        exportToCSV(sys.argv[1], violations)
-
-    printOutViolations(sys.argv[1], violations)
-    fh.close()
+        exportToCSV(sys.argv[1], allViolations)
 
 if __name__ == "__main__":
     main()
