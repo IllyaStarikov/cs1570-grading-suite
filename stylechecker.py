@@ -2,6 +2,8 @@ import re
 import sys
 import csv
 
+import cProfile
+
 from itertools import islice
 
 extensions = ["hpp", "cpp", "h"]
@@ -82,7 +84,9 @@ def checkAgainstRules(line, number):
     violations = []
 
     for rule, (regex, description) in rules.items():
-        if re.search(regex, line):
+        pattern = re.compile(regex)
+        
+        if pattern.search(line):
             violations.append((rule, number + 1))
 
     return violations
@@ -120,7 +124,9 @@ def checkForDocumentation(filename):
 
     entireFile = getEntireFile(filename)
     # This covers the /* ... */ comments
-    comments = re.findall('\/\*[\S\s]*\*\/', entireFile)
+    allCommentPattern = re.compile('\/\*[\S\s]*\*\/')
+    comments = allCommentPattern.findall(entireFile)
+    
     if comments != []:
         for comment in comments:
             if comment.count('\n') == 0:
@@ -136,7 +142,8 @@ def checkForDocumentation(filename):
                 totalLinesOfComments += comment.count('\n') - len(re.findall('\*\s*\n', comment))
 
     # This covers // comments
-    totalLinesOfComments += len(re.findall('\/\/.+', entireFile))
+    allSingleLineComments = re.compile('\/\/.+')
+    totalLinesOfComments += len(allSingleLineComments.findall(entireFile))
 
     # A good hueristic for documentation is 3 lines of code for every function
     if 3*(numberOfFunctions(filename))[1] > totalLinesOfComments:
@@ -259,11 +266,12 @@ def findFirstOccurenceInFile(filename, token):
 # Counts and returns an integer specifying how many function there are in said file
 def numberOfFunctions(filename):
     entireFile = getEntireFile(filename)
+    
     pattern = re.compile(
-    '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]([a-zA-Z]|[0-9]|_|\[\]|\&|\s)*|\s|,)*\)\s*(.)'
+    '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]|[0-9]|_|\[.*|\]|\&|\s|,)*\)\s*(.)'
     )
     allFunctions = pattern.findall(entireFile)
-
+    
     definitions = list(filter(lambda x: lastElement(x) == '{', allFunctions))
     prototypes = list(filter(lambda x: lastElement(x) == ';', allFunctions))
 
