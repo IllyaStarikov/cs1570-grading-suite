@@ -85,7 +85,7 @@ def checkAgainstRules(line, number):
 
     for rule, (regex, description) in rules.items():
         pattern = re.compile(regex)
-        
+
         if pattern.search(line):
             violations.append((rule, number + 1))
 
@@ -126,7 +126,7 @@ def checkForDocumentation(filename):
     # This covers the /* ... */ comments
     allCommentPattern = re.compile('\/\*[\S\s]*\*\/')
     comments = allCommentPattern.findall(entireFile)
-    
+
     if comments != []:
         for comment in comments:
             if comment.count('\n') == 0:
@@ -216,7 +216,7 @@ def checkHeaderGaurds(filename):
                 violations.append((RuleTypes.HEADER_GAURDS_MATCHING, findFirstOccurenceInFile(filename, ifNotDefine)))
 
             # If not in the format FILENAME_EXTENSION
-            if define != filename.replace(".", "_").upper():
+            if stripExcessSpace(define) not in stripExcessSpace(filename.replace(".", "_").upper()):
                 violations.append((RuleTypes.HEADER_GAURDS_NAMING, findFirstOccurenceInFile(filename, define)))
 
     return violations
@@ -266,12 +266,12 @@ def findFirstOccurenceInFile(filename, token):
 # Counts and returns an integer specifying how many function there are in said file
 def numberOfFunctions(filename):
     entireFile = getEntireFile(filename)
-    
+
     pattern = re.compile(
     '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]|[0-9]|_|\[.*|\]|\&|\s|,)*\)\s*(.)'
     )
     allFunctions = pattern.findall(entireFile)
-    
+
     definitions = list(filter(lambda x: lastElement(x) == '{', allFunctions))
     prototypes = list(filter(lambda x: lastElement(x) == ';', allFunctions))
 
