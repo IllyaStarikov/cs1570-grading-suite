@@ -35,7 +35,7 @@ rules = {
         RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
         RuleTypes.COLUMN: (".{80}\S", "80 Column Rule"),
         RuleTypes.BRACES: ("[^\s].*({|}[^\s*while.*])", "Brace Not On Newline"),
-        RuleTypes.TABS: ("\t", "Tabs"),
+        RuleTypes.TABS: ("\A\t", "Tabs"),
         RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-zA-Z]|_)([A-Z]|[0-9]|_)*[a-z]+([A-Z]|[0-9]|_)*(\s*=\s*.+)*;", "Non-Uppercase Constants")
         }
 
