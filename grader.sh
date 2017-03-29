@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Usage: Run this in the cs1570 directory.
 # run as ./grader.sh SECTION_TO_GRADE
@@ -85,6 +85,7 @@ finish() {
 }
 
 main() {
+    preperation
     plagerismChecker $1
     grade $1
     finish
