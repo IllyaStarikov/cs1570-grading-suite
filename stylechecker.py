@@ -2,8 +2,6 @@ import re
 import sys
 import csv
 
-import cProfile
-
 from itertools import islice
 
 extensions = ["hpp", "cpp", "h"]
@@ -19,25 +17,28 @@ extensions = ["hpp", "cpp", "h"]
 # a rule that's too complicated to be checked line by line (further in the script)
 # and has it's own dedicated function.
 
+
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
 
+
 # If a new rule appears, simply add to the enum and the regex to the rules section
 RuleTypes = enum('HEADER', 'DOCUMENTATION', 'HEADER_GAURDS_MATCHING', 'HEADER_GAURDS_NAMING', 'SWITCH_DEFAULT', 'FUNCTIONS', 'COLUMN', 'BRACES', 'TABS', "CONSTANTS")
 
+
 rules = {
-        RuleTypes.HEADER: ("$a", "Missing Header"),
-        RuleTypes.DOCUMENTATION: ("$a", "Missing Documentation"),
-        RuleTypes.FUNCTIONS: ("$a", "Return Statements < Functions"),
-        RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
-        RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
-        RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
-        RuleTypes.COLUMN: (".{80}\S", "80 Column Rule"),
-        RuleTypes.BRACES: ("[^\s].*([^\s*=\s*]{|}[^\s*while.*])", "Brace Not On Newline"),
-        RuleTypes.TABS: ("\A\t", "Tabs"),
-        RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-zA-Z]|_)([A-Z]|[0-9]|_)*[a-z]+([A-Z]|[0-9]|_)*(\s*=\s*.+)*;", "Non-Uppercase Constants")
-        }
+    RuleTypes.HEADER: ("$a", "Missing Header"),
+    RuleTypes.DOCUMENTATION: ("$a", "Missing Documentation"),
+    RuleTypes.FUNCTIONS: ("$a", "Return Statements < Functions"),
+    RuleTypes.HEADER_GAURDS_MATCHING: ("$a", "Header Gaurds Don't Match"),
+    RuleTypes.HEADER_GAURDS_NAMING: ("$a", "Header Gaurds Are Incorrect Format"),
+    RuleTypes.SWITCH_DEFAULT: ("$a", "No Default in Switch Case"),
+    RuleTypes.COLUMN: (".{80}\S", "80 Column Rule"),
+    RuleTypes.BRACES: ("[^\s].*([^\s*=\s*]{|}[^\s*while.*])", "Brace Not On Newline"),
+    RuleTypes.TABS: ("\A\t", "Tabs"),
+    RuleTypes.CONSTANTS: ("const\s+([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*|\s*,\s*)*([a-zA-Z]|_)([A-Z]|[0-9]|_)*[a-z]+([A-Z]|[0-9]|_)*(\s*=\s*.+)*;", "Non-Uppercase Constants")
+}
 
 
 # Args: a list of the form (rule enum, line number)
@@ -61,6 +62,7 @@ def printOutViolations(filename, violations):
             print('- Line {line}: `{violatingLine}`\n'.format(line=line, violatingLine=stripExcessSpace(getLine(filename, line))))
 
         violationsPrinted[rule] = (violationsPrinted[rule][0] + 1, True)
+
 
 def exportToCSV(filename, violations):
     violations.sort()
@@ -146,7 +148,7 @@ def checkForDocumentation(filename):
     totalLinesOfComments += len(allSingleLineComments.findall(entireFile))
 
     # A good hueristic for documentation is 3 lines of code for every function
-    if 3*(numberOfFunctions(filename))[1] > totalLinesOfComments:
+    if 3 * (numberOfFunctions(filename))[1] > totalLinesOfComments:
         newRule = "Missing Documentation ({functionCount} Functions, {commentCount} Lines of Comments)".format(functionCount=numberOfFunctions(filename)[1], commentCount=totalLinesOfComments)
         rules[RuleTypes.DOCUMENTATION] = ("$a", newRule)
         return [(RuleTypes.DOCUMENTATION, 0)]
@@ -157,7 +159,7 @@ def checkForDocumentation(filename):
 # Arg: a string to specify the filename
 # Verifies every function has a return statement
 def verifyReturnStatements(filename):
-    if re.search(".*.cpp", filname):
+    if re.search(".*.cpp", filename):
         fh = open(filename)
         totalNumberOfReturnStatements = 0
 
@@ -268,7 +270,7 @@ def numberOfFunctions(filename):
     entireFile = getEntireFile(filename)
 
     pattern = re.compile(
-    '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]|[0-9]|_|\[.*|\]|\&|\s|,)*\)\s*(.)'
+        '(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*)\s+(([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\s*::\s*)?([a-zA-Z]|_)([a-zA-Z]|[0-9]|_)*\(([a-zA-Z]|[0-9]|_|\[.*|\]|\&|\s|,)*\)\s*(.)'
     )
     allFunctions = pattern.findall(entireFile)
 
@@ -367,6 +369,7 @@ def main():
 
     if "--csv" in sys.argv:
         exportToCSV(sys.argv[1], allViolations)
+
 
 if __name__ == "__main__":
     main()
