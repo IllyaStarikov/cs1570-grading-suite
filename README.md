@@ -15,7 +15,7 @@ Along with said linting, the entire directory of homeworks is also checked for p
 
 For *all* of these program to work, there is an expected directory structure. That directory structure is thus:
 
-``
+````
 DIRECTORY
 |
 |__ User #1
@@ -35,7 +35,7 @@ DIRECTORY
 |__|__ File #4
 |__|__ File #5
 |__|__ File #6
-``
+````
 
 Essentially, the top level directory has all the homeworks, subsequent subdirectories are the user's files, and the user's subdirectories contain the code. The minimum and maximum depth of the folder structure is three.
 
