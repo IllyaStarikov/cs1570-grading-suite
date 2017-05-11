@@ -9,7 +9,7 @@ cs1570-grader is a grader for introduction to programming at Missouri S&T. The p
 
 And so forth. These functions are written entirely in python3. A markdown output is produced, and if the `--csv` option is passed, a CSV is produced of the form `username,type of violiation,type of violation,...`.
 
-The linter file can be ran via `./stylechecker.py *.cpp *.hpp *.h`. The linting relies *heavily* on python's [Regular Expressions library](https://docs.python.org/2/library/re.html). The regexs are documented under the [Regular Expressions](#Regular-Expressions) section.
+The linter file can be ran via `./stylechecker.py *.cpp *.hpp *.h`. The linting relies *heavily* on python's [Regular Expressions library](https://docs.python.org/2/library/re.html). The regexs are documented under the [Regular Expressions](#regular-expressions) section.
 
 Along with said linting, the entire directory of homeworks is also checked for plagiarism via Stanford's [Moss](https://theory.stanford.edu/~aiken/moss/) program. Download it from the website, and put it in the same directory as the linter files.
 
