@@ -1,3 +1,4 @@
+#!/usr/local/bin/python3
 #
 #  main.py
 #  cs1570-grader
