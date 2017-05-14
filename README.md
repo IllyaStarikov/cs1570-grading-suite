@@ -39,7 +39,7 @@ DIRECTORY
 
 Essentially, the top level directory has all the homeworks, subsequent subdirectories are the user's files, and the user's subdirectories contain the code. The minimum and maximum depth of the folder structure is three.
 
-All these functions are encapsulated in Bash script, `grader.py`. The usage is as follows: `./grader.py DIRECTORY`.
+All these functions are encapsulated in Bash script, `grader.py`. The usage is as follows: `./grader.py PATH/TO/DIRECTORY`.
 
 ## Regular Expressions
 ### Rules
