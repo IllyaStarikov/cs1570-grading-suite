@@ -1,4 +1,4 @@
-# cs1570-grader
+# cs1570 Grading Suite
 cs1570-grader is a grader for introduction to programming at Missouri S&T. The programming lints student code for style guide violations, set by the course coordinator. Some of these rules include:
 
 - Ensuring every `.hpp` files has a header
