@@ -39,7 +39,25 @@ DIRECTORY
 
 Essentially, the top level directory has all the homeworks, subsequent subdirectories are the user's files, and the user's subdirectories contain the code. The minimum and maximum depth of the folder structure is three.
 
-All these functions are encapsulated in Bash script, `grader.py`. The usage is as follows: `./grader.py PATH/TO/DIRECTORY`.
+All these functions are encapsulated in Bash script, `grader.py`. The usage is as follows: `./grader.py PATH/TO/DIRECTORY`. There are other files, which are described below.
+
+## Other Files
+Below are additional files added that can be an aid in grading.
+
+### roster-checker.py
+Usage: **python3 roster-checker.py PATH/TO/ROSTER/FILE PATH/TO/STUDENTS/DIRECTORY**
+
+Roster checker provides a way to determine if there are either any faulty submission (i.e., a submission from a different class) or if a student forgot to submit an assignment.
+
+The only requirements are a roster file, which lists all the students, seperated by a newline; like so:
+
+````
+User #1
+User #2
+User #3
+````
+
+It doesn't matter if there are subdirectories or files, the only requirements is *the username must be in the submission* of the top level. So if roster file is like the one above, then directory diagram at the beginning of the README would suffice.
 
 ## Regular Expressions
 ### Rules
